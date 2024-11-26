@@ -21,6 +21,7 @@ int event_count = 0;
 void add_event();
 void view_events();
 void check_alarms();
+int is_valid_date(int day, int month, int year);
 
 int main() {
     int choice;
@@ -29,7 +30,11 @@ int main() {
     while (1) {
         printf("\n1. Add Event\n2. View Events\n3. Check Alarms\n4. Exit\n");
         printf("Enter your choice: ");
-        scanf("%d", &choice);
+        if (scanf("%d", &choice) != 1) {
+            printf("Invalid input! Please enter a number.\n");
+            while (getchar() != '\n'); // Clear input buffer
+            continue;
+        }
 
         switch (choice) {
             case 1:
@@ -58,31 +63,40 @@ void add_event() {
         return;
     }
 
+    Event new_event;
     printf("Enter event details:\n");
 
     printf("Day (1-31): ");
-    scanf("%d", &events[event_count].day);
+    scanf("%d", &new_event.day);
 
     printf("Month (1-12): ");
-    scanf("%d", &events[event_count].month);
+    scanf("%d", &new_event.month);
 
     printf("Year: ");
-    scanf("%d", &events[event_count].year);
+    scanf("%d", &new_event.year);
+
+    if (!is_valid_date(new_event.day, new_event.month, new_event.year)) {
+        printf("Invalid date! Please try again.\n");
+        return;
+    }
 
     printf("Hour (0-23): ");
-    scanf("%d", &events[event_count].hour);
+    scanf("%d", &new_event.hour);
 
     printf("Minute (0-59): ");
-    scanf("%d", &events[event_count].minute);
+    scanf("%d", &new_event.minute);
+
+    if (new_event.hour < 0 || new_event.hour > 23 || new_event.minute < 0 || new_event.minute > 59) {
+        printf("Invalid time! Please try again.\n");
+        return;
+    }
 
     printf("Description: ");
     getchar(); // Consume the leftover newline
-    fgets(events[event_count].description, sizeof(events[event_count].description), stdin);
+    fgets(new_event.description, sizeof(new_event.description), stdin);
+    new_event.description[strcspn(new_event.description, "\n")] = '\0'; // Remove newline
 
-    // Remove newline from the description
-    events[event_count].description[strcspn(events[event_count].description, "\n")] = '\0';
-
-    event_count++;
+    events[event_count++] = new_event;
     printf("Event added successfully!\n");
 }
 
@@ -101,12 +115,8 @@ void view_events() {
 }
 
 void check_alarms() {
-    time_t now;
-    struct tm *current_time;
-
-    // Get the current system time
-    now = time(NULL);
-    current_time = localtime(&now);
+    time_t now = time(NULL);
+    struct tm *current_time = localtime(&now);
 
     int curr_day = current_time->tm_mday;
     int curr_month = current_time->tm_mon + 1;
@@ -114,15 +124,36 @@ void check_alarms() {
     int curr_hour = current_time->tm_hour;
     int curr_minute = current_time->tm_min;
 
+    int alarm_triggered = 0;
+
+    printf("\nChecking alarms for current time: %02d/%02d/%04d %02d:%02d\n",
+           curr_day, curr_month, curr_year, curr_hour, curr_minute);
+
     for (int i = 0; i < event_count; i++) {
         if (events[i].day == curr_day &&
             events[i].month == curr_month &&
             events[i].year == curr_year &&
             events[i].hour == curr_hour &&
-            events[i].minute == curr_minute) {
-            printf("\nALARM! Event happening now: %s\n", events[i].description);
+            (events[i].minute == curr_minute || events[i].minute == curr_minute - 1 || events[i].minute == curr_minute + 1)) {
+            printf("\nALARM! Event happening now or nearby: %s\n", events[i].description);
+            alarm_triggered = 1;
         }
     }
 
+    if (!alarm_triggered) {
+        printf("No alarms at this time.\n");
+    }
+
     printf("Alarm check complete.\n");
+}
+
+int is_valid_date(int day, int month, int year) {
+    if (month < 1 || month > 12 || day < 1) return 0;
+
+    int days_in_month[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    if ((year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)) {
+        days_in_month[1] = 29; // Leap year
+    }
+
+    return day <= days_in_month[month - 1];
 }
